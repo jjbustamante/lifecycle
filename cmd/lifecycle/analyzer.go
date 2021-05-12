@@ -228,15 +228,14 @@ func (a *analyzeCmd) validateStack() error {
 
 	if err != nil && buildImageStackID == "" && runImageRef == "" {
 		return nil
-	} else {
-		if buildImageStackID == "" {
-			buildImageStackID = stackMD.BuildImage.StackID
-		}
-		if runImageRef == "" {
-			runImageRef = stackMD.RunImage.Image
-		}
 	}
 
+	if buildImageStackID == "" {
+		buildImageStackID = stackMD.BuildImage.StackID
+	}
+	if runImageRef == "" {
+		runImageRef = stackMD.RunImage.Image
+	}
 	if buildImageStackID == "" {
 		return cmd.FailErrCode(
 			errors.New("CNB_STACK_ID is required when there is no stack metadata available"),
