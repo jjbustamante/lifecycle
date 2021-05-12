@@ -1,0 +1,3 @@
+[build-image]
+ stack-id = "io.buildpacks.stacks.bionic"
+ mixins = []

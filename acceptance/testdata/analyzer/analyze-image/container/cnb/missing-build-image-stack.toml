@@ -1,0 +1,3 @@
+[run-image]
+ image = "company/stack:bionic"
+ mirrors = []

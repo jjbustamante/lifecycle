@@ -1,0 +1,6 @@
+[run-image]
+ image = "company/stack:bionic"
+ mirrors = []
+[build-image]
+ stack-id = "io.buildpacks.stacks.bionic"
+ mixins = []

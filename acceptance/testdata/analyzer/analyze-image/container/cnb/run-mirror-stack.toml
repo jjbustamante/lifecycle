@@ -1,0 +1,6 @@
+[run-image]
+ image = "gcr.io/paketobuildpacks/invalidimg:20"
+ mirrors = ["company/stack:bionic"]
+[build-image]
+ stack-id = "io.buildpacks.stacks.bionic"
+ mixins = []

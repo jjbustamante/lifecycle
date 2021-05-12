@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/BurntSushi/toml"
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/local"
 	"github.com/buildpacks/imgutil/remote"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle"
@@ -158,6 +161,10 @@ func (a *analyzeCmd) Exec() error {
 		}
 	}
 
+	if err := a.validateStack(); err != nil {
+		return cmd.FailErr(err, "validate stack")
+	}
+
 	analyzedMD, err := a.analyze()
 	if err != nil {
 		return err
@@ -208,6 +215,90 @@ func (aa analyzeArgs) analyze() (platform.AnalyzedMetadata, error) {
 	return analyzedMD, nil
 }
 
+func (a *analyzeCmd) validateStack() error {
+	if !a.validatesStack() {
+		return nil
+	}
+
+	buildImageStackID := os.Getenv("CNB_STACK_ID")
+	runImageRef := a.runImageRef
+
+	var stackMD platform.StackMetadata
+	_, err := toml.DecodeFile(a.stackPath, &stackMD)
+
+	if err != nil && buildImageStackID == "" && runImageRef == "" {
+		return nil
+	} else {
+		if buildImageStackID == "" {
+			buildImageStackID = stackMD.BuildImage.StackID
+		}
+		if runImageRef == "" {
+			runImageRef = stackMD.RunImage.Image
+		}
+	}
+
+	if buildImageStackID == "" {
+		return cmd.FailErrCode(
+			errors.New("CNB_STACK_ID is required when there is no stack metadata available"),
+			cmd.CodeInvalidArgs,
+			"parse arguments",
+		)
+	}
+
+	if runImageRef == "" {
+		return cmd.FailErrCode(
+			errors.New("-run-image is required when there is no stack metadata available"),
+			cmd.CodeInvalidArgs,
+			"parse arguments",
+		)
+	}
+
+	if a.runImageRef == "" && a.imageName != "" {
+		ref, err := name.ParseReference(a.imageName, name.WeakValidation)
+		if err != nil {
+			return cmd.FailErr(err, "failed to parse registry")
+		}
+
+		registry := ref.Context().RegistryStr()
+
+		runImageRef, err = stackMD.BestRunImageMirror(registry)
+		if err != nil {
+			return cmd.FailErr(err, "run image mirror")
+		}
+	}
+
+	var runImage imgutil.Image
+	if a.useDaemon {
+		runImage, err = local.NewImage(
+			runImageRef,
+			a.docker,
+			local.FromBaseImage(runImageRef),
+		)
+	} else {
+		runImage, err = remote.NewImage(
+			runImageRef,
+			a.keychain,
+			remote.FromBaseImage(runImageRef),
+		)
+	}
+	if err != nil {
+		return cmd.FailErr(err, "access run image")
+	}
+
+	runStackID, err := runImage.Label(platform.StackIDLabel)
+	if err != nil {
+		return errors.Wrap(err, "get run image labels")
+	}
+	if runStackID == "" {
+		return errors.New("empty run image io.buildpacks.stack.id")
+	}
+
+	if buildImageStackID != runStackID {
+		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildImageStackID))
+	}
+	return nil
+}
+
 func (a *analyzeCmd) registryImages() []string {
 	var registryImages []string
 	if a.platform06.cacheImageTag != "" {
@@ -225,6 +316,10 @@ func (a *analyzeCmd) restoresLayerMetadata() bool {
 
 func (a *analyzeCmd) supportsImageArgument() bool {
 	return !a.platformAPIVersionGreaterThan06()
+}
+
+func (a *analyzeCmd) validatesStack() bool {
+	return a.platformAPIVersionGreaterThan06()
 }
 
 func (a *analyzeCmd) platformAPIVersionGreaterThan06() bool {

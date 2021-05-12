@@ -81,6 +81,7 @@ func TestAnalyzer(t *testing.T) {
 		analyzeDockerContext,
 		h.WithFlags(
 			"-f", filepath.Join(analyzeDockerContext, dockerfileName),
+			"--build-arg", "registry="+noAuthRegistry.Host+":"+noAuthRegistry.Port,
 		),
 	)
 	defer h.DockerImageRemove(t, analyzeImage)
@@ -1015,6 +1016,237 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 				assertAnalyzedMetadata(t, filepath.Join(copyDir, "some-other-layers", "analyzed.toml")) // analyzed.toml is written at the provided -layers directory: /some-other-layers
 			})
 		})
+
+		when("validating stack", func() {
+			it.Before(func() {
+				h.SkipIf(t, api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0, "Platform API < 0.7 does not validate stack")
+
+				// push test run-images into test registry
+				buildRunRegistryImage(
+					t,
+					"company/stack:bionic",
+					filepath.Join("testdata", "analyzer", "run-image"),
+					"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+				)
+				buildRunRegistryImage(
+					t,
+					"company/stack:centos",
+					filepath.Join("testdata", "analyzer", "run-image"),
+					"--build-arg", "stackid=io.company.centos",
+				)
+
+				h.DockerBuild(
+					t,
+					"localcompany/stack:bionic",
+					filepath.Join("testdata", "analyzer", "run-image"),
+					h.WithArgs(
+						"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+					),
+				)
+			})
+
+			when("stack metadata is not present anywhere", func() {
+				it("skips validation", func() {
+					execArgs := []string{ctrPath(analyzerPath)}
+
+					h.DockerRunAndCopy(t,
+						containerName,
+						copyDir,
+						ctrPath("/layers/analyzed.toml"),
+						analyzeImage,
+						h.WithFlags(
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
+						),
+						h.WithArgs(execArgs...),
+					)
+				})
+			})
+
+			when("stack metadata is present", func() {
+				when("stacks match", func() {
+					it("passes validation", func() {
+						execArgs := []string{ctrPath(analyzerPath)}
+
+						h.DockerRunAndCopy(t,
+							containerName,
+							copyDir,
+							ctrPath("/layers/analyzed.toml"),
+							analyzeImage,
+							h.WithFlags(
+								"--env", "CNB_PLATFORM_API="+platformAPI,
+								"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
+							),
+							h.WithArgs(execArgs...),
+						)
+					})
+				})
+
+				when("stacks do not match", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "incompatible stack: 'io.company.centos' is not compatible with 'io.buildpacks.stacks.bionic'"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
+				when("CNB_STACK_ID is present", func() {
+					it("uses CNB_STACK_ID for validation", func() {
+						execArgs := []string{ctrPath(analyzerPath)}
+
+						h.DockerRunAndCopy(t,
+							containerName,
+							copyDir,
+							ctrPath("/layers/analyzed.toml"),
+							analyzeImage,
+							h.WithFlags(
+								"--env", "CNB_PLATFORM_API="+platformAPI,
+								"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
+								"--env", "CNB_STACK_ID=io.company.centos",
+							),
+							h.WithArgs(execArgs...),
+						)
+					})
+				})
+
+				when("CNB_RUN_IMAGE is present", func() {
+					it("uses CNB_RUN_IMAGE for validation", func() {
+						execArgs := []string{ctrPath(analyzerPath)}
+
+						h.DockerRunAndCopy(t,
+							containerName,
+							copyDir,
+							ctrPath("/layers/analyzed.toml"),
+							analyzeImage,
+							h.WithFlags(
+								"--env", "CNB_PLATFORM_API="+platformAPI,
+								"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
+								"--env", "CNB_RUN_IMAGE="+noAuthRegistry.RepoName("company/stack:bionic"),
+							),
+							h.WithArgs(execArgs...),
+						)
+					})
+				})
+
+				when("stack metadata does not contain build-image.stack-id", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/missing-build-image-stack.toml",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "CNB_STACK_ID is required when there is no stack metadata available"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
+				when("stack metadata does not contain run-image.image", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/missing-run-image.toml",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "-run-image is required when there is no stack metadata available"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
+				when("run image inaccessible", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
+							"--env", "CNB_RUN_IMAGE=fake.example.com/company/example:20",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "access run image"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
+				when("run image does not have io.buildpacks.stack.id", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
+							"--env", "CNB_RUN_IMAGE=company/stack:missing-labels",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "empty run image io.buildpacks.stack.id"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
+				when("run image has mirrors", func() {
+					it("uses expected mirror for run-image", func() {
+						execArgs := []string{ctrPath(analyzerPath), "--previous-image=" + noAuthRegistry.RepoName("apprepo/myapp")}
+
+						h.DockerRunAndCopy(t,
+							containerName,
+							copyDir,
+							ctrPath("/layers/analyzed.toml"),
+							analyzeImage,
+							h.WithFlags(
+								"--env", "CNB_PLATFORM_API="+platformAPI,
+								"--env", "CNB_STACK_PATH=/cnb/run-mirror-stack.toml",
+							),
+							h.WithArgs(execArgs...),
+						)
+					})
+				})
+
+				when("daemon case", func() {
+					when("stacks match", func() {
+						it("passes validation", func() {
+							execArgs := []string{ctrPath(analyzerPath), "-daemon"}
+
+							h.DockerRunAndCopy(t,
+								containerName,
+								copyDir,
+								ctrPath("/layers/analyzed.toml"),
+								analyzeImage,
+								h.WithFlags(append(
+									dockerSocketMount,
+									"--env", "CNB_PLATFORM_API="+platformAPI,
+									"--env", "CNB_STACK_PATH=/cnb/local-bionic-stack.toml",
+								)...),
+								h.WithArgs(execArgs...),
+							)
+						})
+					})
+				})
+			})
+		})
 	}
 }
 
@@ -1028,6 +1260,17 @@ func minifyMetadata(t *testing.T, path string, metadataStruct interface{}) strin
 	h.AssertNil(t, err)
 
 	return string(flatMetadata)
+}
+
+func buildRunRegistryImage(t *testing.T, repoName, context string, buildArgs ...string) string {
+	// Build image
+	regRepoName := registry.RepoName(repoName)
+	h.DockerBuild(t, regRepoName, context, h.WithArgs(buildArgs...))
+
+	// Push image
+	h.AssertNil(t, h.PushImage(h.DockerCli(t), regRepoName, registry.EncodedLabeledAuth()))
+
+	return regRepoName
 }
 
 func buildAuthRegistryImage(t *testing.T, repoName, context string, buildArgs ...string) (string, string) {
