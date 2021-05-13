@@ -216,7 +216,7 @@ type StackRunImageMetadata struct {
 
 type StackBuildImageMetadata struct {
 	StackID string   `toml:"stack-id" json:"stack-id"`
-	Mirrors []string `toml:"mixins" json:"mixins,omitempty"`
+	Mixins  []string `toml:"mixins" json:"mixins,omitempty"`
 }
 
 func (sm *StackMetadata) BestRunImageMirror(registry string) (string, error) {
