@@ -221,52 +221,76 @@ func (a *analyzeCmd) validateStack() error {
 	}
 
 	var stackMD platform.StackMetadata
+	if _, err := toml.DecodeFile(a.stackPath, &stackMD); os.IsNotExist(err) {
+		return nil
+	}
 
+	runImage, err := a.resolveRunImage(stackMD)
+	if err != nil {
+		return cmd.FailErr(err, "resolve run image")
+	}
+
+	buildStackID, err := a.resolveBuildStack(stackMD)
+	if err != nil {
+		return cmd.FailErr(err, "resolve stack image")
+	}
+
+	runStackID, err := runImage.Label(platform.StackIDLabel)
+	if err != nil {
+		return errors.Wrap(err, "get run image labels")
+	}
+	if runStackID == "" {
+		return errors.New("empty run image io.buildpacks.stack.id")
+	}
+
+	if buildStackID != runStackID {
+		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildStackID))
+	}
+	return nil
+}
+
+func (a *analyzeCmd) resolveBuildStack(stackMD platform.StackMetadata) (string, error) {
 	buildStackID := os.Getenv(cmd.EnvStackID)
-	runImageRef := a.runImageRef
-	processRunImageMirrors := false
-
-	if buildStackID == "" || runImageRef == "" {
-		if _, err := toml.DecodeFile(a.stackPath, &stackMD); os.IsNotExist(err) {
-			return nil
-		}
-
-		if buildStackID == "" {
-			buildStackID = stackMD.BuildImage.StackID
-		}
-		if runImageRef == "" {
-			runImageRef = stackMD.RunImage.Image
-			processRunImageMirrors = a.imageName != ""
-		}
+	if buildStackID == "" {
+		buildStackID = stackMD.BuildImage.StackID
 	}
 
 	if buildStackID == "" {
-		return cmd.FailErrCode(
+		return "", cmd.FailErrCode(
 			errors.New("CNB_STACK_ID is required when there is no stack metadata available"),
 			cmd.CodeInvalidArgs,
 			"parse arguments",
 		)
 	}
+	return buildStackID, nil
+}
+
+func (a *analyzeCmd) resolveRunImage(stackMD platform.StackMetadata) (imgutil.Image, error) {
+	runImageRef := a.runImageRef
+	if runImageRef == "" {
+		runImageRef = stackMD.RunImage.Image
+	}
+	useRunImageMirrors := stackMD.RunImage.Image != "" && a.imageName != ""
 
 	if runImageRef == "" {
-		return cmd.FailErrCode(
+		return nil, cmd.FailErrCode(
 			errors.New("CNB_RUN_IMAGE is required when there is no stack metadata available"),
 			cmd.CodeInvalidArgs,
 			"parse arguments",
 		)
 	}
 
-	if processRunImageMirrors {
+	if useRunImageMirrors {
 		ref, err := name.ParseReference(a.imageName, name.WeakValidation)
 		if err != nil {
-			return cmd.FailErr(err, "failed to parse registry")
+			return nil, cmd.FailErr(err, "failed to parse registry")
 		}
 
 		registry := ref.Context().RegistryStr()
 
 		runImageRef, err = stackMD.BestRunImageMirror(registry)
 		if err != nil {
-			return cmd.FailErr(err, "run image mirror")
+			return nil, cmd.FailErr(err, "run image mirror")
 		}
 	}
 
@@ -285,22 +309,7 @@ func (a *analyzeCmd) validateStack() error {
 			remote.FromBaseImage(runImageRef),
 		)
 	}
-	if err != nil {
-		return cmd.FailErr(err, "access run image")
-	}
-
-	runStackID, err := runImage.Label(platform.StackIDLabel)
-	if err != nil {
-		return errors.Wrap(err, "get run image labels")
-	}
-	if runStackID == "" {
-		return errors.New("empty run image io.buildpacks.stack.id")
-	}
-
-	if buildStackID != runStackID {
-		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildStackID))
-	}
-	return nil
+	return runImage, err
 }
 
 func (a *analyzeCmd) registryImages() []string {
