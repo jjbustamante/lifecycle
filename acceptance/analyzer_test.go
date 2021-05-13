@@ -1171,6 +1171,23 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					})
 				})
 
+				when("stack metadata file is invalid", func() {
+					it("fails validation", func() {
+						cmd := exec.Command(
+							"docker", "run", "--rm",
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/bad-stack.toml",
+							analyzeImage,
+							ctrPath(analyzerPath),
+						) // #nosec G204
+						output, err := cmd.CombinedOutput()
+
+						h.AssertNotNil(t, err)
+						expected := "get stack metadata"
+						h.AssertStringContains(t, string(output), expected)
+					})
+				})
+
 				when("run image inaccessible", func() {
 					it("fails validation", func() {
 						cmd := exec.Command(
@@ -1202,7 +1219,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						output, err := cmd.CombinedOutput()
 
 						h.AssertNotNil(t, err)
-						expected := "empty run image io.buildpacks.stack.id"
+						expected := "get run image label: io.buildpacks.stack.id"
 						h.AssertStringContains(t, string(output), expected)
 					})
 				})

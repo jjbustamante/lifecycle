@@ -222,7 +222,7 @@ func (a *analyzeCmd) validateStack() error {
 
 	var stackMD platform.StackMetadata
 	if _, err := toml.DecodeFile(a.stackPath, &stackMD); os.IsNotExist(err) {
-		return nil
+		return cmd.FailErr(err, "get stack metadata")
 	}
 
 	runImage, err := a.resolveRunImage(stackMD)
@@ -237,10 +237,10 @@ func (a *analyzeCmd) validateStack() error {
 
 	runStackID, err := runImage.Label(platform.StackIDLabel)
 	if err != nil {
-		return errors.Wrap(err, "get run image labels")
+		return errors.Wrap(err, "get run image label")
 	}
 	if runStackID == "" {
-		return errors.New("empty run image io.buildpacks.stack.id")
+		return errors.New("get run image label: io.buildpacks.stack.id")
 	}
 
 	if buildStackID != runStackID {
