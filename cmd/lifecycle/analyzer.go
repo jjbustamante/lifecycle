@@ -216,7 +216,7 @@ func (aa analyzeArgs) analyze() (platform.AnalyzedMetadata, error) {
 }
 
 func (a *analyzeCmd) validateStack() error {
-	if !a.validatesStack() {
+	if !a.supportsStackValidation() {
 		return nil
 	}
 
@@ -317,7 +317,7 @@ func (a *analyzeCmd) supportsImageArgument() bool {
 	return !a.platformAPIVersionGreaterThan06()
 }
 
-func (a *analyzeCmd) validatesStack() bool {
+func (a *analyzeCmd) supportsStackValidation() bool {
 	return a.platformAPIVersionGreaterThan06()
 }
 
