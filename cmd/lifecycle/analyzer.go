@@ -221,18 +221,18 @@ func (a *analyzeCmd) validateStack() error {
 	}
 
 	var stackMD platform.StackMetadata
-	if _, err := toml.DecodeFile(a.stackPath, &stackMD); os.IsNotExist(err) {
+	if _, err := toml.DecodeFile(a.stackPath, &stackMD); err != nil && !os.IsNotExist(err) {
 		return cmd.FailErr(err, "get stack metadata")
+	}
+
+	buildStackID, err := a.resolveBuildStack(stackMD)
+	if err != nil {
+		return cmd.FailErr(err, "resolve stack")
 	}
 
 	runImage, err := a.resolveRunImage(stackMD)
 	if err != nil {
 		return cmd.FailErr(err, "resolve run image")
-	}
-
-	buildStackID, err := a.resolveBuildStack(stackMD)
-	if err != nil {
-		return cmd.FailErr(err, "resolve stack image")
 	}
 
 	runStackID, err := runImage.Label(platform.StackIDLabel)

@@ -23,7 +23,7 @@ RUN chown -R root /docker-config; chmod -R 700 /docker-config
 ARG registry
 
 # replace company/stack -> 192.../company/stack
-RUN sed -i "s/company\/stack/${registry}\/company\/stack/g" /cnb/bionic-stack.toml
+RUN sed -i "s/company\/stack/${registry}\/company\/stack/g" /cnb/stack.toml
 RUN sed -i "s/company\/stack/${registry}\/company\/stack/g" /cnb/mismatch-stack.toml
 RUN sed -i "s/company\/stack/${registry}\/company\/stack/g" /cnb/missing-build-image-stack.toml
 RUN sed -i "s/company\/stack/${registry}\/company\/stack/g" /cnb/run-mirror-stack.toml

@@ -73,6 +73,29 @@ func TestAnalyzer(t *testing.T) {
 	h.AssertNil(t, os.RemoveAll(filepath.Join(targetDockerConfig, "config.json")))
 	h.RecursiveCopy(t, authRegistry.DockerDirectory, targetDockerConfig)
 
+	// build run-images into test registry
+	buildAuthRegistryImage(
+		t,
+		"company/stack:bionic",
+		filepath.Join("testdata", "analyzer", "run-image"),
+		"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+	)
+	buildAuthRegistryImage(
+		t,
+		"company/stack:centos",
+		filepath.Join("testdata", "analyzer", "run-image"),
+		"--build-arg", "stackid=io.company.centos",
+	)
+
+	h.DockerBuild(
+		t,
+		"localcompany/stack:bionic",
+		filepath.Join("testdata", "analyzer", "run-image"),
+		h.WithArgs(
+			"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+		),
+	)
+
 	// Setup test container
 
 	h.MakeAndCopyLifecycle(t, daemonOS, analyzerBinaryDir)
@@ -303,6 +326,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					h.WithFlags(append(
 						dockerSocketMount,
 						"--env", "CNB_PLATFORM_API="+platformAPI,
+						"--env", "CNB_STACK_PATH=/cnb/local-bionic-stack.toml",
 					)...),
 					h.WithArgs(execArgs...),
 				)
@@ -342,6 +366,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						h.WithFlags(append(
 							dockerSocketMount,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_STACK_PATH=/cnb/local-bionic-stack.toml",
 						)...),
 						h.WithArgs(
 							ctrPath(analyzerPath),
@@ -1020,46 +1045,22 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 		when("validating stack", func() {
 			it.Before(func() {
 				h.SkipIf(t, api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0, "Platform API < 0.7 does not validate stack")
-
-				// push test run-images into test registry
-				buildAuthRegistryImage(
-					t,
-					"company/stack:bionic",
-					filepath.Join("testdata", "analyzer", "run-image"),
-					"--build-arg", "stackid=io.buildpacks.stacks.bionic",
-				)
-				buildAuthRegistryImage(
-					t,
-					"company/stack:centos",
-					filepath.Join("testdata", "analyzer", "run-image"),
-					"--build-arg", "stackid=io.company.centos",
-				)
-
-				h.DockerBuild(
-					t,
-					"localcompany/stack:bionic",
-					filepath.Join("testdata", "analyzer", "run-image"),
-					h.WithArgs(
-						"--build-arg", "stackid=io.buildpacks.stacks.bionic",
-					),
-				)
 			})
 
 			when("stack metadata is not present anywhere", func() {
-				it("skips validation", func() {
-					execArgs := []string{ctrPath(analyzerPath)}
-
-					h.DockerRunAndCopy(t,
-						containerName,
-						copyDir,
-						ctrPath("/layers/analyzed.toml"),
+				it("fails validation", func() {
+					cmd := exec.Command(
+						"docker", "run", "--rm",
+						"--env", "CNB_PLATFORM_API="+platformAPI,
+						"--env", "CNB_STACK_PATH=/cnb/fake-stack.toml",
 						analyzeImage,
-						h.WithFlags(
-							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
-						),
-						h.WithArgs(execArgs...),
-					)
+						ctrPath(analyzerPath),
+					) // #nosec G204
+					output, err := cmd.CombinedOutput()
+
+					h.AssertNotNil(t, err)
+					expected := "failed to validate stack: failed to resolve stack"
+					h.AssertStringContains(t, string(output), expected)
 				})
 			})
 
@@ -1075,7 +1076,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							analyzeImage,
 							h.WithFlags(
 								"--env", "CNB_PLATFORM_API="+platformAPI,
-								"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
 							),
 							h.WithArgs(execArgs...),
 						)
@@ -1193,7 +1193,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						cmd := exec.Command(
 							"docker", "run", "--rm",
 							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
 							"--env", "CNB_RUN_IMAGE=fake.example.com/company/example:20",
 							analyzeImage,
 							ctrPath(analyzerPath),
@@ -1201,7 +1200,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						output, err := cmd.CombinedOutput()
 
 						h.AssertNotNil(t, err)
-						expected := "access run image"
+						expected := "failed to resolve run image"
 						h.AssertStringContains(t, string(output), expected)
 					})
 				})
@@ -1211,7 +1210,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						cmd := exec.Command(
 							"docker", "run", "--rm",
 							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_STACK_PATH=/cnb/bionic-stack.toml",
 							"--env", "CNB_RUN_IMAGE=company/stack:missing-labels",
 							analyzeImage,
 							ctrPath(analyzerPath),
