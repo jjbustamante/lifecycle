@@ -220,23 +220,27 @@ func (a *analyzeCmd) validateStack() error {
 		return nil
 	}
 
-	buildImageStackID := os.Getenv("CNB_STACK_ID")
-	runImageRef := a.runImageRef
-
 	var stackMD platform.StackMetadata
-	_, err := toml.DecodeFile(a.stackPath, &stackMD)
 
-	if err != nil && buildImageStackID == "" && runImageRef == "" {
-		return nil
+	buildStackID := os.Getenv(cmd.EnvStackID)
+	runImageRef := a.runImageRef
+	processRunImageMirrors := false
+
+	if buildStackID == "" || runImageRef == "" {
+		if _, err := toml.DecodeFile(a.stackPath, &stackMD); os.IsNotExist(err) {
+			return nil
+		}
+
+		if buildStackID == "" {
+			buildStackID = stackMD.BuildImage.StackID
+		}
+		if runImageRef == "" {
+			runImageRef = stackMD.RunImage.Image
+			processRunImageMirrors = a.imageName != ""
+		}
 	}
 
-	if buildImageStackID == "" {
-		buildImageStackID = stackMD.BuildImage.StackID
-	}
-	if runImageRef == "" {
-		runImageRef = stackMD.RunImage.Image
-	}
-	if buildImageStackID == "" {
+	if buildStackID == "" {
 		return cmd.FailErrCode(
 			errors.New("CNB_STACK_ID is required when there is no stack metadata available"),
 			cmd.CodeInvalidArgs,
@@ -246,13 +250,13 @@ func (a *analyzeCmd) validateStack() error {
 
 	if runImageRef == "" {
 		return cmd.FailErrCode(
-			errors.New("-run-image is required when there is no stack metadata available"),
+			errors.New("CNB_RUN_IMAGE is required when there is no stack metadata available"),
 			cmd.CodeInvalidArgs,
 			"parse arguments",
 		)
 	}
 
-	if a.runImageRef == "" && a.imageName != "" {
+	if processRunImageMirrors {
 		ref, err := name.ParseReference(a.imageName, name.WeakValidation)
 		if err != nil {
 			return cmd.FailErr(err, "failed to parse registry")
@@ -267,6 +271,7 @@ func (a *analyzeCmd) validateStack() error {
 	}
 
 	var runImage imgutil.Image
+	var err error
 	if a.useDaemon {
 		runImage, err = local.NewImage(
 			runImageRef,
@@ -292,8 +297,8 @@ func (a *analyzeCmd) validateStack() error {
 		return errors.New("empty run image io.buildpacks.stack.id")
 	}
 
-	if buildImageStackID != runStackID {
-		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildImageStackID))
+	if buildStackID != runStackID {
+		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildStackID))
 	}
 	return nil
 }

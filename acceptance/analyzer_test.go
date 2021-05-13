@@ -1166,7 +1166,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 						output, err := cmd.CombinedOutput()
 
 						h.AssertNotNil(t, err)
-						expected := "-run-image is required when there is no stack metadata available"
+						expected := "CNB_RUN_IMAGE is required when there is no stack metadata available"
 						h.AssertStringContains(t, string(output), expected)
 					})
 				})
