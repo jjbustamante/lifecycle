@@ -1022,13 +1022,13 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 				h.SkipIf(t, api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0, "Platform API < 0.7 does not validate stack")
 
 				// push test run-images into test registry
-				buildRunRegistryImage(
+				buildAuthRegistryImage(
 					t,
 					"company/stack:bionic",
 					filepath.Join("testdata", "analyzer", "run-image"),
 					"--build-arg", "stackid=io.buildpacks.stacks.bionic",
 				)
-				buildRunRegistryImage(
+				buildAuthRegistryImage(
 					t,
 					"company/stack:centos",
 					filepath.Join("testdata", "analyzer", "run-image"),
@@ -1260,17 +1260,6 @@ func minifyMetadata(t *testing.T, path string, metadataStruct interface{}) strin
 	h.AssertNil(t, err)
 
 	return string(flatMetadata)
-}
-
-func buildRunRegistryImage(t *testing.T, repoName, context string, buildArgs ...string) string {
-	// Build image
-	regRepoName := registry.RepoName(repoName)
-	h.DockerBuild(t, regRepoName, context, h.WithArgs(buildArgs...))
-
-	// Push image
-	h.AssertNil(t, h.PushImage(h.DockerCli(t), regRepoName, registry.EncodedLabeledAuth()))
-
-	return regRepoName
 }
 
 func buildAuthRegistryImage(t *testing.T, repoName, context string, buildArgs ...string) (string, string) {
