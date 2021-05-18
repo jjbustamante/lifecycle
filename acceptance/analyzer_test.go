@@ -1051,6 +1051,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 				it("fails validation", func() {
 					cmd := exec.Command(
 						"docker", "run", "--rm",
+						"--network", registryNetwork,
 						"--env", "CNB_PLATFORM_API="+platformAPI,
 						"--env", "CNB_STACK_PATH=/cnb/fake-stack.toml",
 						analyzeImage,
@@ -1075,6 +1076,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							ctrPath("/layers/analyzed.toml"),
 							analyzeImage,
 							h.WithFlags(
+								"--network", registryNetwork,
 								"--env", "CNB_PLATFORM_API="+platformAPI,
 							),
 							h.WithArgs(execArgs...),
@@ -1086,6 +1088,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
 							analyzeImage,
@@ -1109,6 +1112,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							ctrPath("/layers/analyzed.toml"),
 							analyzeImage,
 							h.WithFlags(
+								"--network", registryNetwork,
 								"--env", "CNB_PLATFORM_API="+platformAPI,
 								"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
 								"--env", "CNB_STACK_ID=io.company.centos",
@@ -1128,6 +1132,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							ctrPath("/layers/analyzed.toml"),
 							analyzeImage,
 							h.WithFlags(
+								"--network", registryNetwork,
 								"--env", "CNB_PLATFORM_API="+platformAPI,
 								"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
 								"--env", "CNB_RUN_IMAGE="+noAuthRegistry.RepoName("company/stack:bionic"),
@@ -1141,6 +1146,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_STACK_PATH=/cnb/missing-build-image-stack.toml",
 							analyzeImage,
@@ -1158,6 +1164,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_STACK_PATH=/cnb/missing-run-image.toml",
 							analyzeImage,
@@ -1175,6 +1182,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_STACK_PATH=/cnb/bad-stack.toml",
 							analyzeImage,
@@ -1192,6 +1200,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_RUN_IMAGE=fake.example.com/company/example:20",
 							analyzeImage,
@@ -1209,6 +1218,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					it("fails validation", func() {
 						cmd := exec.Command(
 							"docker", "run", "--rm",
+							"--network", registryNetwork,
 							"--env", "CNB_PLATFORM_API="+platformAPI,
 							"--env", "CNB_RUN_IMAGE=company/stack:missing-labels",
 							analyzeImage,
@@ -1232,6 +1242,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							ctrPath("/layers/analyzed.toml"),
 							analyzeImage,
 							h.WithFlags(
+								"--network", registryNetwork,
 								"--env", "CNB_PLATFORM_API="+platformAPI,
 								"--env", "CNB_STACK_PATH=/cnb/run-mirror-stack.toml",
 							),
@@ -1252,6 +1263,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 								analyzeImage,
 								h.WithFlags(append(
 									dockerSocketMount,
+									"--network", registryNetwork,
 									"--env", "CNB_PLATFORM_API="+platformAPI,
 									"--env", "CNB_STACK_PATH=/cnb/local-bionic-stack.toml",
 								)...),
