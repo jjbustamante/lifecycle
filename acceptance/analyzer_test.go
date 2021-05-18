@@ -277,6 +277,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 		when("analyzed path is provided", func() {
 			it("writes analyzed.toml at the provided path", func() {
+				h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 				execArgs := []string{
 					ctrPath(analyzerPath),
 					"-analyzed", ctrPath("/some-dir/some-analyzed.toml"),
@@ -676,6 +678,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 		when("registry case", func() {
 			it("writes analyzed.toml", func() {
+				h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 				execArgs := []string{ctrPath(analyzerPath)}
 				// Platform >= 0.7 does not allow an argument, < 7 requires an argument
 				if api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0 {
@@ -1076,6 +1080,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 			when("stack metadata is present", func() {
 				when("stacks match", func() {
 					it("passes validation", func() {
+						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 						execArgs := []string{ctrPath(analyzerPath)}
 
 						h.DockerRunAndCopy(t,
@@ -1094,6 +1100,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 				when("stacks do not match", func() {
 					it("fails validation", func() {
+						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 						cmd := exec.Command(
 							"docker", "run", "--rm",
 							"--network", registryNetwork,
@@ -1112,6 +1120,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 				when("CNB_STACK_ID is present", func() {
 					it("uses CNB_STACK_ID for validation", func() {
+						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 						execArgs := []string{ctrPath(analyzerPath)}
 
 						h.DockerRunAndCopy(t,
@@ -1242,6 +1252,8 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 				when("run image has mirrors", func() {
 					it("uses expected mirror for run-image", func() {
+						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
+
 						execArgs := []string{ctrPath(analyzerPath), "--previous-image=" + noAuthRegistry.RepoName("apprepo/myapp")}
 
 						h.DockerRunAndCopy(t,
