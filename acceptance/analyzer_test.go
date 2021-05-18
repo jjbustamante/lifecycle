@@ -293,7 +293,10 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					copyDir,
 					ctrPath("/some-dir/some-analyzed.toml"),
 					analyzeImage,
-					h.WithFlags("--env", "CNB_PLATFORM_API="+platformAPI),
+					h.WithFlags(
+						"--network", registryNetwork,
+						"--env", "CNB_PLATFORM_API="+platformAPI,
+					),
 					h.WithArgs(execArgs...),
 				)
 
@@ -681,6 +684,7 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 					ctrPath("/layers/analyzed.toml"),
 					analyzeImage,
 					h.WithFlags(
+						"--network", registryNetwork,
 						"--env", "CNB_PLATFORM_API="+platformAPI,
 					),
 					h.WithArgs(execArgs...),
