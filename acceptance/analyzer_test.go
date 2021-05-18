@@ -74,29 +74,31 @@ func TestAnalyzer(t *testing.T) {
 	h.RecursiveCopy(t, authRegistry.DockerDirectory, targetDockerConfig)
 
 	// build run-images into test registry
-	if runtime.GOOS != "windows" {
-		buildAuthRegistryImage(
-			t,
-			"company/stack:bionic",
-			filepath.Join("testdata", "analyzer", "run-image"),
-			"--build-arg", "stackid=io.buildpacks.stacks.bionic",
-		)
-		buildAuthRegistryImage(
-			t,
-			"company/stack:centos",
-			filepath.Join("testdata", "analyzer", "run-image"),
-			"--build-arg", "stackid=io.company.centos",
-		)
+	runImageContext := filepath.Join("testdata", "analyzer", "run-image")
+	buildAuthRegistryImage(
+		t,
+		"company/stack:bionic",
+		runImageContext,
+		"-f", filepath.Join(runImageContext, dockerfileName),
+		"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+	)
+	buildAuthRegistryImage(
+		t,
+		"company/stack:centos",
+		runImageContext,
+		"-f", filepath.Join(runImageContext, dockerfileName),
+		"--build-arg", "stackid=io.company.centos",
+	)
 
-		h.DockerBuild(
-			t,
-			"localcompany/stack:bionic",
-			filepath.Join("testdata", "analyzer", "run-image"),
-			h.WithArgs(
-				"--build-arg", "stackid=io.buildpacks.stacks.bionic",
-			),
-		)
-	}
+	h.DockerBuild(
+		t,
+		"localcompany/stack:bionic",
+		runImageContext,
+		h.WithArgs(
+			"-f", filepath.Join(runImageContext, dockerfileName),
+			"--build-arg", "stackid=io.buildpacks.stacks.bionic",
+		),
+	)
 
 	// Setup test container
 
@@ -1050,7 +1052,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 		when("validating stack", func() {
 			it.Before(func() {
-				h.SkipIf(t, runtime.GOOS == "windows", "Not relevant on Windows")
 				h.SkipIf(t, api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0, "Platform API < 0.7 does not validate stack")
 			})
 
