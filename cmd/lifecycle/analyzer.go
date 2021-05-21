@@ -10,7 +10,6 @@ import (
 	"github.com/buildpacks/imgutil/remote"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle"
@@ -225,7 +224,7 @@ func (a *analyzeCmd) validateStack() error {
 		return cmd.FailErr(err, "get stack metadata")
 	}
 
-	runImage, err := a.resolveRunImage(stackMD)
+	runImage, err := a.getRunImage(stackMD)
 	if err != nil {
 		return cmd.FailErr(err, "resolve run image")
 	}
@@ -233,48 +232,28 @@ func (a *analyzeCmd) validateStack() error {
 	return lifecycle.ValidateStack(stackMD, runImage)
 }
 
-func (a *analyzeCmd) resolveRunImage(stackMD platform.StackMetadata) (imgutil.Image, error) {
-	runImageRef := a.runImageRef
-	if runImageRef == "" {
-		runImageRef = stackMD.RunImage.Image
-	}
-	useRunImageMirrors := stackMD.RunImage.Image != "" && a.imageName != ""
-
-	if runImageRef == "" {
-		return nil, cmd.FailErrCode(
-			errors.New("CNB_RUN_IMAGE is required when there is no stack metadata available"),
-			cmd.CodeInvalidArgs,
-			"parse arguments",
-		)
-	}
-
-	if useRunImageMirrors {
-		ref, err := name.ParseReference(a.imageName, name.WeakValidation)
+func (a *analyzeCmd) getRunImage(stackMD platform.StackMetadata) (imgutil.Image, error) {
+	if a.runImageRef == "" {
+		runImageRef, err := lifecycle.ResolveRunImage(stackMD, a.imageName)
 		if err != nil {
-			return nil, cmd.FailErr(err, "failed to parse registry")
+			return nil, err
 		}
-
-		registry := ref.Context().RegistryStr()
-
-		runImageRef, err = stackMD.BestRunImageMirror(registry)
-		if err != nil {
-			return nil, cmd.FailErr(err, "run image mirror")
-		}
+		a.runImageRef = runImageRef
 	}
 
 	var runImage imgutil.Image
 	var err error
 	if a.useDaemon {
 		runImage, err = local.NewImage(
-			runImageRef,
+			a.runImageRef,
 			a.docker,
-			local.FromBaseImage(runImageRef),
+			local.FromBaseImage(a.runImageRef),
 		)
 	} else {
 		runImage, err = remote.NewImage(
-			runImageRef,
+			a.runImageRef,
 			a.keychain,
-			remote.FromBaseImage(runImageRef),
+			remote.FromBaseImage(a.runImageRef),
 		)
 	}
 	return runImage, err
