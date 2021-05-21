@@ -225,44 +225,12 @@ func (a *analyzeCmd) validateStack() error {
 		return cmd.FailErr(err, "get stack metadata")
 	}
 
-	buildStackID, err := a.resolveBuildStack(stackMD)
-	if err != nil {
-		return cmd.FailErr(err, "resolve stack")
-	}
-
 	runImage, err := a.resolveRunImage(stackMD)
 	if err != nil {
 		return cmd.FailErr(err, "resolve run image")
 	}
 
-	runStackID, err := runImage.Label(platform.StackIDLabel)
-	if err != nil {
-		return errors.Wrap(err, "get run image label")
-	}
-	if runStackID == "" {
-		return errors.New("get run image label: io.buildpacks.stack.id")
-	}
-
-	if buildStackID != runStackID {
-		return errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", runStackID, buildStackID))
-	}
-	return nil
-}
-
-func (a *analyzeCmd) resolveBuildStack(stackMD platform.StackMetadata) (string, error) {
-	buildStackID := os.Getenv(cmd.EnvStackID)
-	if buildStackID == "" {
-		buildStackID = stackMD.BuildImage.StackID
-	}
-
-	if buildStackID == "" {
-		return "", cmd.FailErrCode(
-			errors.New("CNB_STACK_ID is required when there is no stack metadata available"),
-			cmd.CodeInvalidArgs,
-			"parse arguments",
-		)
-	}
-	return buildStackID, nil
+	return lifecycle.ValidateStack(stackMD, runImage)
 }
 
 func (a *analyzeCmd) resolveRunImage(stackMD platform.StackMetadata) (imgutil.Image, error) {

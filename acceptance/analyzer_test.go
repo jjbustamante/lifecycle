@@ -1059,24 +1059,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 				h.SkipIf(t, api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0, "Platform API < 0.7 does not validate stack")
 			})
 
-			when("stack metadata is not present anywhere", func() {
-				it("fails validation", func() {
-					cmd := exec.Command(
-						"docker", "run", "--rm",
-						"--network", registryNetwork,
-						"--env", "CNB_PLATFORM_API="+platformAPI,
-						"--env", "CNB_STACK_PATH=/cnb/fake-stack.toml",
-						analyzeImage,
-						ctrPath(analyzerPath),
-					) // #nosec G204
-					output, err := cmd.CombinedOutput()
-
-					h.AssertNotNil(t, err)
-					expected := "failed to validate stack: failed to resolve stack"
-					h.AssertStringContains(t, string(output), expected)
-				})
-			})
-
 			when("stack metadata is present", func() {
 				when("stacks match", func() {
 					it("passes validation", func() {
@@ -1092,48 +1074,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							h.WithFlags(
 								"--network", registryNetwork,
 								"--env", "CNB_PLATFORM_API="+platformAPI,
-							),
-							h.WithArgs(execArgs...),
-						)
-					})
-				})
-
-				when("stacks do not match", func() {
-					it("fails validation", func() {
-						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
-
-						cmd := exec.Command(
-							"docker", "run", "--rm",
-							"--network", registryNetwork,
-							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
-							analyzeImage,
-							ctrPath(analyzerPath),
-						) // #nosec G204
-						output, err := cmd.CombinedOutput()
-
-						h.AssertNotNil(t, err)
-						expected := "incompatible stack: 'io.company.centos' is not compatible with 'io.buildpacks.stacks.bionic'"
-						h.AssertStringContains(t, string(output), expected)
-					})
-				})
-
-				when("CNB_STACK_ID is present", func() {
-					it("uses CNB_STACK_ID for validation", func() {
-						h.SkipIf(t, runtime.GOOS == "windows", "Not yet working on Windows")
-
-						execArgs := []string{ctrPath(analyzerPath)}
-
-						h.DockerRunAndCopy(t,
-							containerName,
-							copyDir,
-							ctrPath("/layers/analyzed.toml"),
-							analyzeImage,
-							h.WithFlags(
-								"--network", registryNetwork,
-								"--env", "CNB_PLATFORM_API="+platformAPI,
-								"--env", "CNB_STACK_PATH=/cnb/mismatch-stack.toml",
-								"--env", "CNB_STACK_ID=io.company.centos",
 							),
 							h.WithArgs(execArgs...),
 						)
@@ -1157,24 +1097,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 							),
 							h.WithArgs(execArgs...),
 						)
-					})
-				})
-
-				when("stack metadata does not contain build-image.stack-id", func() {
-					it("fails validation", func() {
-						cmd := exec.Command(
-							"docker", "run", "--rm",
-							"--network", registryNetwork,
-							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_STACK_PATH=/cnb/missing-build-image-stack.toml",
-							analyzeImage,
-							ctrPath(analyzerPath),
-						) // #nosec G204
-						output, err := cmd.CombinedOutput()
-
-						h.AssertNotNil(t, err)
-						expected := "CNB_STACK_ID is required when there is no stack metadata available"
-						h.AssertStringContains(t, string(output), expected)
 					})
 				})
 
@@ -1228,24 +1150,6 @@ func testAnalyzerFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 						h.AssertNotNil(t, err)
 						expected := "failed to resolve run image"
-						h.AssertStringContains(t, string(output), expected)
-					})
-				})
-
-				when("run image does not have io.buildpacks.stack.id", func() {
-					it("fails validation", func() {
-						cmd := exec.Command(
-							"docker", "run", "--rm",
-							"--network", registryNetwork,
-							"--env", "CNB_PLATFORM_API="+platformAPI,
-							"--env", "CNB_RUN_IMAGE=company/stack:missing-labels",
-							analyzeImage,
-							ctrPath(analyzerPath),
-						) // #nosec G204
-						output, err := cmd.CombinedOutput()
-
-						h.AssertNotNil(t, err)
-						expected := "get run image label: io.buildpacks.stack.id"
 						h.AssertStringContains(t, string(output), expected)
 					})
 				})
