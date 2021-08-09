@@ -334,7 +334,6 @@ func (i *Image) Save(additionalNames ...string) error {
 	if err != nil {
 		return errors.Wrap(err, "append image")
 	}
-
 	return nil
 }
 
