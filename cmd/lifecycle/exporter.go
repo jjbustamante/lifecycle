@@ -306,18 +306,18 @@ func (ea exportArgs) initDaemonAppImage(analyzedMD platform.AnalyzedMetadata) (i
 }
 
 func (ea exportArgs) initLayoutAppImage(analyzedMD platform.AnalyzedMetadata) (imgutil.Image, string, error) {
-		location := ea.imageNames[0]
-		appImage, err := layout.NewImage(location)
+	location := ea.imageNames[0]
+	appImage, _ := layout.NewImage(location)
 
-		runImage, err := remote.NewImage(ea.runImageRef, ea.keychain, remote.FromBaseImage(ea.runImageRef))
-		if err != nil {
-			return nil, "", cmd.FailErr(err, "access run image")
-		}
-		runImageID, err := runImage.Identifier()
-		if err != nil {
-			return nil, "", cmd.FailErr(err, "get run image reference")
-		}
-		return appImage, runImageID.String(), nil
+	runImage, err := remote.NewImage(ea.runImageRef, ea.keychain, remote.FromBaseImage(ea.runImageRef))
+	if err != nil {
+		return nil, "", cmd.FailErr(err, "access run image")
+	}
+	runImageID, err := runImage.Identifier()
+	if err != nil {
+		return nil, "", cmd.FailErr(err, "get run image reference")
+	}
+	return appImage, runImageID.String(), nil
 }
 
 func (ea exportArgs) initRemoteAppImage(analyzedMD platform.AnalyzedMetadata) (imgutil.Image, string, error) {
@@ -405,7 +405,7 @@ func resolveStack(imageName, stackPath, providedRunImageRef string) (platform.St
 
 	if providedRunImageRef != "" {
 		// if a specific run image was provided use that
-		return stackMD, providedRunImageRef, registry, nil	
+		return stackMD, providedRunImageRef, registry, nil
 	}
 
 	if stackMD.RunImage.Image == "" {

@@ -7,11 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/buildpacks/lifecycle/layout"
-	h "github.com/buildpacks/lifecycle/testhelpers"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
+
+	"github.com/buildpacks/lifecycle/layout"
+	h "github.com/buildpacks/lifecycle/testhelpers"
 )
 
 func TestImage(t *testing.T) {
@@ -19,7 +20,6 @@ func TestImage(t *testing.T) {
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
-
 	var tmpDir string
 
 	it.Before(func() {
@@ -44,7 +44,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("directory exists", func() {
 			it.Before(func() {
-				os.MkdirAll(filepath.Join(tmpDir, "some-image"), os.ModePerm)
+				err := os.MkdirAll(filepath.Join(tmpDir, "some-image"), os.ModePerm)
+				h.AssertNil(t, err)
 			})
 
 			it("returns true", func() {
@@ -57,7 +58,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Save", func() {
-
 		when("no base image is provided", func() {
 			it("creates layout", func() {
 				layoutDir := filepath.Join(tmpDir, "layout")
