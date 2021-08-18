@@ -34,10 +34,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Found", func() {
 		when("directory doesn't exist", func() {
-			it("returns true", func() {
+			it("returns false", func() {
 				img, err := layout.NewImage(filepath.Join(tmpDir, "non-existent"))
 				h.AssertNil(t, err)
-
 				h.AssertEq(t, img.Found(), false)
 			})
 		})
@@ -51,7 +50,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns true", func() {
 				img, err := layout.NewImage(filepath.Join(tmpDir, "some-image"))
 				h.AssertNil(t, err)
-
 				h.AssertEq(t, img.Found(), true)
 			})
 		})
