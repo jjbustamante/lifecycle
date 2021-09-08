@@ -126,6 +126,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertPathExists(t, layerPath)
 
 				// TODO: Check that layer is not compressed
+				// mediaType := manifest.Layers[0].MediaType
+				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
 			})
 		})
 
@@ -220,9 +222,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				layerPath := filepath.Join(layoutDir, "blobs", digest.Algorithm, digest.Hex)
 				h.AssertPathExists(t, layerPath)
 
+				// mediaType := manifest.Layers[0].MediaType
+				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
+
 				digest = manifest.Layers[1].Digest
 				layerPath = filepath.Join(layoutDir, "blobs", digest.Algorithm, digest.Hex)
 				h.AssertPathExists(t, layerPath)
+
+				// mediaType = manifest.Layers[1].MediaType
+				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
 
 				// TODO: Check that layer is not compressed
 			})

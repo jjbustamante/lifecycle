@@ -82,7 +82,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	if imageOpts.prevImagePath != "" {
-		err := processPrevImagePath(image, imageOpts.baseImagePath)
+		err := processPrevImagePath(image, imageOpts.prevImagePath)
 		if err != nil {
 			return nil, err
 		}
