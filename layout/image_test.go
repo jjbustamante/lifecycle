@@ -231,7 +231,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// mediaType = manifest.Layers[1].MediaType
 				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
-
 				// TODO: Check that layer is not compressed
 			})
 		})
