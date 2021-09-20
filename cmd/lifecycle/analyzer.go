@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/buildpacks/imgutil/remote"
+	"github.com/buildpacks/lifecycle/layout"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/local"
-	"github.com/buildpacks/imgutil/remote"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -34,10 +35,12 @@ type analyzeCmd struct {
 type analyzeArgs struct {
 	cacheImageRef    string
 	layersDir        string
+	layoutDir        string
 	outputImageRef   string
 	previousImageRef string
 	runImageRef      string
 	useDaemon        bool
+	useLayout        bool
 
 	additionalTags cmd.StringSlice
 	docker         client.CommonAPIClient // construct if necessary before dropping privileges
@@ -71,6 +74,7 @@ func (a *analyzeCmd) DefineFlags() {
 	cmd.FlagUseDaemon(&a.useDaemon)
 	cmd.FlagUID(&a.uid)
 	cmd.FlagGID(&a.gid)
+	cmd.FlagUseLayout(&a.useLayout)
 }
 
 func (a *analyzeCmd) Args(nargs int, args []string) error {
@@ -130,6 +134,10 @@ func (a *analyzeCmd) Args(nargs int, args []string) error {
 
 	if err := a.populateRunImage(stackMD, targetRegistry); err != nil {
 		return cmd.FailErrCode(err, cmd.CodeInvalidArgs, "populate run image")
+	}
+
+	if a.useLayout {
+		a.layoutDir = cmd.EnvOrDefault(cmd.EnvLayoutDir, cmd.DefaultLayoutDir)
 	}
 
 	return nil
@@ -216,13 +224,16 @@ func (aa analyzeArgs) analyze() (platform.AnalyzedMetadata, error) {
 		img imgutil.Image
 		err error
 	)
-	if aa.useDaemon {
+	switch {
+	case aa.useLayout:
+		img, err = layout.NewImage(aa.layoutDir)
+	case aa.useDaemon:
 		img, err = local.NewImage(
 			aa.previousImageRef,
 			aa.docker,
 			local.FromBaseImage(aa.previousImageRef),
 		)
-	} else {
+	default:
 		img, err = remote.NewImage(
 			aa.previousImageRef,
 			aa.keychain,

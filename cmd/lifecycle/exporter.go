@@ -47,6 +47,7 @@ type exportArgs struct {
 	launchCacheDir      string
 	launcherPath        string
 	layersDir           string
+	layoutDir           string
 	processType         string
 	projectMetadataPath string
 	reportPath          string
@@ -57,7 +58,7 @@ type exportArgs struct {
 	stackMD             platform.StackMetadata
 
 	useDaemon bool
-	useLayout           bool
+	useLayout bool
 	uid, gid  int
 
 	platform cmd.Platform
@@ -152,6 +153,9 @@ func (e *exportCmd) Args(nargs int, args []string) error {
 		return cmd.FailErrCode(err, cmd.CodeInvalidArgs, "populate run image")
 	}
 
+	if e.useLayout {
+		e.layoutDir = cmd.EnvOrDefault(cmd.EnvLayoutDir, cmd.DefaultLayoutDir)
+	}
 	return nil
 }
 
@@ -291,10 +295,10 @@ func (ea exportArgs) export(group buildpack.Group, cacheStore lifecycle.Cache, a
 	var runImageID string
 
 	switch {
-	case ea.useDaemon:
-		appImage, runImageID, err = ea.initDaemonAppImage(analyzedMD)
 	case ea.useLayout:
 		appImage, runImageID, err = ea.initLayoutAppImage(analyzedMD)
+	case ea.useDaemon:
+		appImage, runImageID, err = ea.initDaemonAppImage(analyzedMD)
 	default:
 		appImage, runImageID, err = ea.initRemoteAppImage(analyzedMD)
 	}
@@ -365,9 +369,7 @@ func (ea exportArgs) initDaemonAppImage(analyzedMD platform.AnalyzedMetadata) (i
 }
 
 func (ea exportArgs) initLayoutAppImage(analyzedMD platform.AnalyzedMetadata) (imgutil.Image, string, error) {
-	location := ea.imageNames[0]
-	appImage, _ := layout.NewImage(location)
-
+	appImage, _ := layout.NewImage(ea.layoutDir)
 	runImage, err := remote.NewImage(ea.runImageRef, ea.keychain, remote.FromBaseImage(ea.runImageRef))
 	if err != nil {
 		return nil, "", cmd.FailErr(err, "access run image")

@@ -59,9 +59,10 @@ func TestExporter(t *testing.T) {
 func testExporterFunc(platformAPI string) func(t *testing.T, when spec.G, it spec.S) {
 	return func(t *testing.T, when spec.G, it spec.S) {
 		var exportedImageName string
-
 		it.After(func() {
-			h.DockerImageRemove(t, exportedImageName)
+			if !strings.Contains(exportedImageName, "oci") {
+				h.DockerImageRemove(t, exportedImageName)
+			}
 		})
 
 		when("daemon case", func() {
@@ -91,6 +92,30 @@ func testExporterFunc(platformAPI string) func(t *testing.T, when spec.G, it spe
 
 						assertImageOSAndArch(t, exportedImageName, exportTest)
 					})
+				})
+			})
+
+			when("layout case", func() {
+				it.Focus("exports image", func() {
+					exportFlags := []string{"-layout"}
+					if api.MustParse(platformAPI).Compare(api.MustParse("0.7")) < 0 {
+						exportFlags = append(exportFlags, []string{"-run-image", exportRegFixtures.ReadOnlyRunImage}...)
+					}
+					exportArgs := append([]string{ctrPath(exporterPath)}, exportFlags...)
+					exportedImageName = "/tmp/oci-image-" + h.RandString(10)
+					exportArgs = append(exportArgs, exportedImageName)
+
+					output := h.DockerRun(t,
+						exportImage,
+						h.WithFlags(append(
+							dockerSocketMount,
+							"--env", "CNB_PLATFORM_API="+platformAPI,
+							"--env", "CNB_REGISTRY_AUTH="+exportRegAuthConfig,
+							"--network", exportRegNetwork,
+						)...),
+						h.WithArgs(exportArgs...),
+					)
+					h.AssertStringContains(t, output, "Saving "+exportedImageName)
 				})
 			})
 		})

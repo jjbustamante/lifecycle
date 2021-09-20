@@ -21,6 +21,7 @@ var (
 	DefaultPlatformDir     = filepath.Join(rootDir, "platform")
 	DefaultProcessType     = "web"
 	DefaultStackPath       = filepath.Join(rootDir, "cnb", "stack.toml")
+	DefaultLayoutDir	   = filepath.Join(DefaultLayersDir, "image")
 
 	DefaultAnalyzedFile        = "analyzed.toml"
 	DefaultGroupFile           = "group.toml"
@@ -65,6 +66,7 @@ const (
 	EnvUID                 = "CNB_USER_ID"
 	EnvUseDaemon           = "CNB_USE_DAEMON" // defaults to false
 	EnvUseLayout           = "CNB_USE_LAYOUT" // defaults to false
+	EnvLayoutDir		   = "CNB_LAYOUT_DIR"
 )
 
 var flagSet = flag.NewFlagSet("lifecycle", flag.ExitOnError)

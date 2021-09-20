@@ -4,6 +4,7 @@ import (
 	"compress/flate"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -41,6 +42,14 @@ type options struct {
 	prevImagePath string
 }
 
+type IDIdentifier struct {
+	ImageID string
+}
+
+func (i IDIdentifier) String() string {
+	return i.ImageID
+}
+
 //WithPreviousImage loads an existing image as a source for reusable layers.
 //Use with ReuseLayer().
 //Ignored if image is not found.
@@ -71,23 +80,26 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	image := &Image{
 		path:            path,
 		underlyingImage: empty.Image,
-		config:          &v1.ConfigFile{},
+		config: &v1.ConfigFile{
+			Config: v1.Config{
+				Labels: map[string]string{},
+			},
+		},
 	}
 
-	if imageOpts.baseImagePath != "" {
+	if pathExists(imageOpts.baseImagePath) {
 		err := processBaseImagePath(image, imageOpts.baseImagePath)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if imageOpts.prevImagePath != "" {
+	if pathExists(imageOpts.prevImagePath) {
 		err := processPrevImagePath(image, imageOpts.prevImagePath)
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	return image, nil
 }
 
@@ -135,10 +147,8 @@ func processBaseImagePath(image *Image, path string) error {
 	if err != nil {
 		return errors.Wrap(err, "process base image")
 	}
-
 	image.config = baseImage.config.DeepCopy()
 	image.underlyingImage = baseImage.underlyingImage
-
 	return nil
 }
 
@@ -147,9 +157,7 @@ func processPrevImagePath(image *Image, path string) error {
 	if err != nil {
 		return errors.Wrap(err, "process previous image")
 	}
-
 	image.prevImage = prevImage
-
 	return nil
 }
 
@@ -342,7 +350,6 @@ func (i *Image) Found() bool {
 	if _, err := os.Stat(i.path); os.IsNotExist(err) {
 		return false
 	}
-
 	return true
 }
 
@@ -374,8 +381,12 @@ func (i *Image) CreatedAt() (time.Time, error) {
 	return time.Now(), nil
 }
 
+// Each image's ID is given by the SHA256 hash of its configuration JSON. It is represented as a hexadecimal encoding of 256 bits,
+// e.g., sha256:a9561eb1b190625c9adb5a9513e72c4dedafc1cb2d4c5236c9a6957ec7dfd5a9.
 func (i *Image) Identifier() (imgutil.Identifier, error) {
-	return nil, nil
+	return IDIdentifier{
+		ImageID: "sha256:" + asSha256(i.config),
+	}, nil
 }
 
 func (i *Image) OS() (string, error) {
@@ -394,4 +405,19 @@ func (i *Image) Architecture() (string, error) {
 func (i *Image) ManifestSize() (int64, error) {
 	// TODO: Compute
 	return 0, nil
+}
+
+func asSha256(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func pathExists(path string) bool {
+	if path != "" {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return true
+		}
+	}
+	return false
 }
