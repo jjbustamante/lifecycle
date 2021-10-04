@@ -56,10 +56,9 @@ type exportArgs struct {
 	targetRegistry      string
 	imageNames          []string
 	stackMD             platform.StackMetadata
-
-	useDaemon bool
-	useLayout bool
-	uid, gid  int
+	useDaemon           bool
+	useLayout           bool
+	uid, gid            int
 
 	platform cmd.Platform
 
@@ -369,7 +368,7 @@ func (ea exportArgs) initDaemonAppImage(analyzedMD platform.AnalyzedMetadata) (i
 }
 
 func (ea exportArgs) initLayoutAppImage(analyzedMD platform.AnalyzedMetadata) (imgutil.Image, string, error) {
-	appImage, _ := layout.NewImage(ea.layoutDir)
+	appImage, _ := layout.NewImage(ea.layoutDir, layout.FromRemoteBaseImage(ea.keychain, ea.runImageRef))
 	runImage, err := remote.NewImage(ea.runImageRef, ea.keychain, remote.FromBaseImage(ea.runImageRef))
 	if err != nil {
 		return nil, "", cmd.FailErr(err, "access run image")

@@ -2,6 +2,7 @@ package layout_test
 
 import (
 	"encoding/json"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -103,6 +104,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = json.Unmarshal(data, manifest)
 				h.AssertNil(t, err)
 
+				mediaType := manifest.Config.MediaType
+				h.AssertEq(t, mediaType, types.OCIConfigJSON)
+
 				// check config file
 				digest = manifest.Config.Digest
 				configPath := filepath.Join(layoutDir, "blobs", digest.Algorithm, digest.Hex)
@@ -126,8 +130,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertPathExists(t, layerPath)
 
 				// TODO: Check that layer is not compressed
-				// mediaType := manifest.Layers[0].MediaType
-				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
+				mediaType = manifest.Layers[0].MediaType
+				h.AssertEq(t, mediaType, types.OCILayer)
 			})
 		})
 
@@ -169,6 +173,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// save
 				err = image.Save()
 				h.AssertNil(t, err)
+
+				top, err := image.TopLayer()
+				h.AssertNil(t, err)
+				t.Logf("TOP LAYER %s", top)
 
 				// check minimal
 				indexPath := filepath.Join(layoutDir, "index.json")
@@ -222,16 +230,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				layerPath := filepath.Join(layoutDir, "blobs", digest.Algorithm, digest.Hex)
 				h.AssertPathExists(t, layerPath)
 
-				// mediaType := manifest.Layers[0].MediaType
-				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
+				mediaType := manifest.Layers[0].MediaType
+				h.AssertEq(t, mediaType, types.OCILayer)
 
 				digest = manifest.Layers[1].Digest
 				layerPath = filepath.Join(layoutDir, "blobs", digest.Algorithm, digest.Hex)
 				h.AssertPathExists(t, layerPath)
 
-				// mediaType = manifest.Layers[1].MediaType
-				// h.AssertEq(t, mediaType, types.OCIUncompressedLayer)
-				// TODO: Check that layer is not compressed
+				mediaType = manifest.Layers[1].MediaType
+				h.AssertEq(t, mediaType, types.OCILayer)
+				// TODO: Check that layer is not compressed (types.OCIUncompressedLayer)
 			})
 		})
 	})

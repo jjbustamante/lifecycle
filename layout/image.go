@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/buildpacks/imgutil/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,6 +19,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 )
 
@@ -25,6 +28,7 @@ var _ imgutil.Image = (*Image)(nil)
 type Image struct {
 	path             string
 	underlyingImage  v1.Image
+	underlyingRunImage v1.Image
 	config           *v1.ConfigFile
 	prevImage        *Image
 	additionalLayers []layerInfo
@@ -40,6 +44,8 @@ type ImageOption func(*options) error
 type options struct {
 	baseImagePath string
 	prevImagePath string
+	keychain authn.Keychain
+	repoName string
 }
 
 type IDIdentifier struct {
@@ -69,6 +75,14 @@ func FromBaseImage(path string) ImageOption {
 	}
 }
 
+func FromRemoteBaseImage(keychain authn.Keychain, repoName string) ImageOption {
+	return func(i *options) error {
+		i.keychain = keychain
+		i.repoName = repoName
+		return nil
+	}
+}
+
 func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
@@ -79,7 +93,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 
 	image := &Image{
 		path:            path,
-		underlyingImage: empty.Image,
+		underlyingImage: EmptyImage,
 		config: &v1.ConfigFile{
 			Config: v1.Config{
 				Labels: map[string]string{},
@@ -87,10 +101,18 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		},
 	}
 
-	if pathExists(imageOpts.baseImagePath) {
-		err := processBaseImagePath(image, imageOpts.baseImagePath)
+	if imageOpts.repoName != "" && imageOpts.keychain != nil {
+		remoteImage, err := remote.NewV1Image(imageOpts.keychain, imageOpts.repoName)
 		if err != nil {
 			return nil, err
+		}
+		image.underlyingRunImage = remoteImage
+	} else {
+		if pathExists(imageOpts.baseImagePath) {
+			err := processBaseImagePath(image, imageOpts.baseImagePath)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -317,16 +339,32 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "set config")
 	}
 
+	if i.underlyingRunImage != nil {
+		runLayers, _ := i.underlyingRunImage.Layers()
+		for _, runLayer := range runLayers {
+			additions := make([]mutate.Addendum, 0)
+			additions = append(additions, mutate.Addendum{
+				MediaType: types.OCILayer,
+				Layer: runLayer,
+			})
+			image, err = mutate.Append(image, additions...)
+		}
+	}
+
 	// FIXME: This still produces a gzip (with no actual compression) based on the current GGCR implementation.
 	// We would need to PR a change to skip gunzip packaging all together and update the mediatype.
 	// See: https://github.com/google/go-containerregistry/blob/c061b3f39cff652d18f95ee23ebfd39cb3f5ee89/pkg/v1/tarball/layer.go#L85
 	for _, layerInfo := range i.additionalLayers {
-		layer, err := tarball.LayerFromFile(layerInfo.path, tarball.WithCompressionLevel(flate.NoCompression))
+		layer, err := tarball.LayerFromFile(layerInfo.path, tarball.WithCompressionLevel(flate.DefaultCompression))
 		if err != nil {
 			return errors.Wrapf(err, "creating layer from %s", layerInfo.path)
 		}
-
-		image, err = mutate.AppendLayers(image, layer)
+		additions := make([]mutate.Addendum, 0)
+		additions = append(additions, mutate.Addendum{
+			MediaType: types.OCILayer,
+			Layer: layer,
+		})
+		image, err = mutate.Append(image, additions...)
 		if err != nil {
 			return errors.Wrapf(err, "appending layer %s", layerInfo.path)
 		}
@@ -338,7 +376,13 @@ func (i *Image) Save(additionalNames ...string) error {
 	}
 
 	path := layout.Path(i.path)
-	err = path.AppendImage(image)
+	tag := "latest"
+	if len(additionalNames) > 0 {
+		tag = additionalNames[0]
+	}
+	err = path.AppendImage(image, layout.WithAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": tag,
+	}))
 	if err != nil {
 		return errors.Wrap(err, "append image")
 	}
