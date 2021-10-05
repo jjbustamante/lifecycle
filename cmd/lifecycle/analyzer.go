@@ -226,7 +226,7 @@ func (aa analyzeArgs) analyze() (platform.AnalyzedMetadata, error) {
 	)
 	switch {
 	case aa.useLayout:
-		img, err = layout.NewImage(aa.layoutDir)
+		img, err = layout.NewImage(aa.layoutDir, layout.WithPreviousImage(aa.layoutDir))
 	case aa.useDaemon:
 		img, err = local.NewImage(
 			aa.previousImageRef,

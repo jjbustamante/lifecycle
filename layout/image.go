@@ -28,7 +28,6 @@ var _ imgutil.Image = (*Image)(nil)
 type Image struct {
 	path             string
 	underlyingImage  v1.Image
-	underlyingRunImage v1.Image
 	config           *v1.ConfigFile
 	prevImage        *Image
 	additionalLayers []layerInfo
@@ -106,7 +105,12 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		image.underlyingRunImage = remoteImage
+		image.underlyingImage = remoteImage
+		runConfig, err := remoteImage.ConfigFile()
+		if err != nil {
+			return nil, err
+		}
+		image.config = runConfig
 	} else {
 		if pathExists(imageOpts.baseImagePath) {
 			err := processBaseImagePath(image, imageOpts.baseImagePath)
@@ -330,7 +334,7 @@ func (i *Image) TopLayer() (string, error) {
 // Save saves the image as `Name()` and any additional names provided to this method.
 func (i *Image) Save(additionalNames ...string) error {
 	var (
-		image = i.underlyingImage
+		image = EmptyImage
 		err   error
 	)
 
@@ -339,8 +343,8 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "set config")
 	}
 
-	if i.underlyingRunImage != nil {
-		runLayers, _ := i.underlyingRunImage.Layers()
+	if i.underlyingImage != nil {
+		runLayers, _ := i.underlyingImage.Layers()
 		for _, runLayer := range runLayers {
 			additions := make([]mutate.Addendum, 0)
 			additions = append(additions, mutate.Addendum{
