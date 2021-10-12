@@ -346,12 +346,10 @@ func (i *Image) Save(additionalNames ...string) error {
 	if i.underlyingImage != nil {
 		runLayers, _ := i.underlyingImage.Layers()
 		for _, runLayer := range runLayers {
-			additions := make([]mutate.Addendum, 0)
-			additions = append(additions, mutate.Addendum{
-				MediaType: types.OCILayer,
-				Layer: runLayer,
-			})
-			image, err = mutate.Append(image, additions...)
+			image, err = appendOCILayer(image, runLayer)
+			if err != nil {
+				return errors.Wrap(err, "appending layer")
+			}
 		}
 	}
 
@@ -363,12 +361,7 @@ func (i *Image) Save(additionalNames ...string) error {
 		if err != nil {
 			return errors.Wrapf(err, "creating layer from %s", layerInfo.path)
 		}
-		additions := make([]mutate.Addendum, 0)
-		additions = append(additions, mutate.Addendum{
-			MediaType: types.OCILayer,
-			Layer: layer,
-		})
-		image, err = mutate.Append(image, additions...)
+		image, err = appendOCILayer(image, layer)
 		if err != nil {
 			return errors.Wrapf(err, "appending layer %s", layerInfo.path)
 		}
@@ -380,13 +373,11 @@ func (i *Image) Save(additionalNames ...string) error {
 	}
 
 	path := layout.Path(i.path)
-	tag := "latest"
+	var annotations map[string]string
 	if len(additionalNames) > 0 {
-		tag = additionalNames[0]
+		annotations = map[string]string{ "org.opencontainers.image.ref.name": additionalNames[0] }
 	}
-	err = path.AppendImage(image, layout.WithAnnotations(map[string]string{
-		"org.opencontainers.image.ref.name": tag,
-	}))
+	err = path.AppendImage(image, layout.WithAnnotations(annotations))
 	if err != nil {
 		return errors.Wrap(err, "append image")
 	}
@@ -479,4 +470,17 @@ func imageExists(path string ) bool {
 		return false
 	}
 	return true
+}
+
+func appendOCILayer(image v1.Image, layer v1.Layer) (v1.Image, error) {
+	additions := make([]mutate.Addendum, 0)
+	additions = append(additions, mutate.Addendum{
+		MediaType: types.OCILayer,
+		Layer: layer,
+	})
+	image, err := mutate.Append(image, additions...)
+	if err != nil {
+		return nil, err
+	}
+	return image, nil
 }
