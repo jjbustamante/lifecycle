@@ -112,7 +112,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		}
 		image.config = runConfig
 	} else {
-		if pathExists(imageOpts.baseImagePath) {
+		if imageExists(imageOpts.baseImagePath) {
 			err := processBaseImagePath(image, imageOpts.baseImagePath)
 			if err != nil {
 				return nil, err
@@ -120,7 +120,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		}
 	}
 
-	if pathExists(imageOpts.prevImagePath) {
+	if imageExists(imageOpts.prevImagePath) {
 		err := processPrevImagePath(image, imageOpts.prevImagePath)
 		if err != nil {
 			return nil, err
@@ -468,4 +468,15 @@ func pathExists(path string) bool {
 		}
 	}
 	return false
+}
+
+func imageExists(path string ) bool {
+	if !pathExists(path) {
+		return false
+	}
+	index := filepath.Join(path, "index.json")
+	if _, err := os.Stat(index); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
