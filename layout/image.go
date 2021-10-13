@@ -367,12 +367,12 @@ func (i *Image) Save(additionalNames ...string) error {
 		}
 	}
 
-	_, err = layout.Write(i.path, empty.Index)
+	_, err = layout.Write(i.Name(), empty.Index)
 	if err != nil {
 		return errors.Wrap(err, "creating layout dir")
 	}
 
-	path := layout.Path(i.path)
+	path := layout.Path(i.Name())
 	var annotations map[string]string
 	if len(additionalNames) > 0 {
 		annotations = map[string]string{ "org.opencontainers.image.ref.name": additionalNames[0] }
