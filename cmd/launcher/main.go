@@ -12,7 +12,8 @@ import (
 	"github.com/buildpacks/lifecycle/cmd"
 	"github.com/buildpacks/lifecycle/env"
 	"github.com/buildpacks/lifecycle/launch"
-	lplatform "github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/common"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func runLaunch() error {
 		cmd.Exit(err)
 	}
 
-	platform, err := lplatform.NewPlatform(platformAPI)
+	platform, err := platform.NewPlatform(platformAPI)
 	if err != nil {
 		cmd.Exit(err)
 	}
@@ -57,13 +58,13 @@ func runLaunch() error {
 	}
 
 	if err := launcher.Launch(os.Args[0], os.Args[1:]); err != nil {
-		return cmd.FailErrCode(err, platform.CodeFor(cmd.LaunchError), "launch")
+		return cmd.FailErrCode(err, platform.CodeFor(common.LaunchError), "launch")
 	}
 	return nil
 }
 
 func defaultProcessType(platformAPI *api.Version, launchMD launch.Metadata) string {
-	if platformAPI.Compare(api.MustParse("0.4")) < 0 {
+	if platformAPI.LessThan("0.4") {
 		return cmd.EnvOrDefault(cmd.EnvProcessType, cmd.DefaultProcessType)
 	}
 	if pType := os.Getenv(cmd.EnvProcessType); pType != "" {

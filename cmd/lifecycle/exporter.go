@@ -24,6 +24,7 @@ import (
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/layout"
 	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/common"
 	"github.com/buildpacks/lifecycle/priv"
 )
 
@@ -60,7 +61,7 @@ type exportArgs struct {
 	useLayout           bool
 	uid, gid            int
 
-	platform cmd.Platform
+	platform Platform
 
 	//construct if necessary before dropping privileges
 	docker   client.CommonAPIClient
@@ -175,7 +176,7 @@ func readStack(stackPath string) (platform.StackMetadata, error) {
 }
 
 func (e *exportCmd) supportsRunImage() bool {
-	return api.MustParse(e.platform.API()).Compare(api.MustParse("0.7")) < 0
+	return api.MustParse(e.platform.API()).LessThan("0.7")
 }
 
 func (e *exportCmd) Privileges() error {
@@ -318,10 +319,10 @@ func (ea exportArgs) export(group buildpack.Group, cacheStore lifecycle.Cache, a
 		WorkingImage:       appImage,
 	})
 	if err != nil {
-		return cmd.FailErrCode(err, ea.platform.CodeFor(cmd.ExportError), "export")
+		return cmd.FailErrCode(err, ea.platform.CodeFor(common.ExportError), "export")
 	}
 	if err := lifecycle.WriteTOML(ea.reportPath, &report); err != nil {
-		return cmd.FailErrCode(err, ea.platform.CodeFor(cmd.ExportError), "write export report")
+		return cmd.FailErrCode(err, ea.platform.CodeFor(common.ExportError), "write export report")
 	}
 
 	if cacheStore != nil {

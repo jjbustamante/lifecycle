@@ -43,7 +43,7 @@ type createCmd struct {
 	additionalTags cmd.StringSlice
 	docker         client.CommonAPIClient // construct if necessary before dropping privileges
 	keychain       authn.Keychain
-	platform       cmd.Platform
+	platform       Platform
 	stackMD        platform.StackMetadata
 }
 
@@ -166,7 +166,7 @@ func (c *createCmd) Exec() error {
 		group      buildpack.Group
 		plan       platform.BuildPlan
 	)
-	if api.MustParse(c.platform.API()).Compare(api.MustParse("0.7")) >= 0 {
+	if api.MustParse(c.platform.API()).AtLeast("0.7") {
 		cmd.DefaultLogger.Phase("ANALYZING")
 		analyzedMD, err = analyzeArgs{
 			additionalTags:   c.additionalTags,
@@ -286,7 +286,7 @@ func (c *createCmd) registryImages() []string {
 }
 
 func (c *createCmd) platformAPIVersionGreaterThan06() bool {
-	return api.MustParse(c.platform.API()).Compare(api.MustParse("0.7")) >= 0
+	return api.MustParse(c.platform.API()).AtLeast("0.7")
 }
 
 func (c *createCmd) ReadableRegistryImages() []string {

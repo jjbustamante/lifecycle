@@ -28,6 +28,7 @@ type bpLayersDir struct {
 
 func readBuildpackLayersDir(layersDir string, bp buildpack.GroupBuildpack, logger Logger) (bpLayersDir, error) {
 	path := filepath.Join(layersDir, launch.EscapeID(bp.ID))
+	logger.Debugf("Reading buildpack directory: %s", path)
 	bpDir := bpLayersDir{
 		name:      bp.ID,
 		path:      path,
@@ -43,6 +44,7 @@ func readBuildpackLayersDir(layersDir string, bp buildpack.GroupBuildpack, logge
 	names := map[string]struct{}{}
 	var tomls []string
 	for _, fi := range fis {
+		logger.Debugf("Reading buildpack directory item: %s", fi.Name())
 		if fi.IsDir() {
 			bpDir.layers = append(bpDir.layers, *bpDir.newBPLayer(fi.Name(), bp.API, logger))
 			names[fi.Name()] = struct{}{}
@@ -68,7 +70,7 @@ func readBuildpackLayersDir(layersDir string, bp buildpack.GroupBuildpack, logge
 			// don't treat launch.toml as a layer
 			continue
 		}
-		if name == "build" && api.MustParse(bp.API).Compare(api.MustParse("0.5")) >= 0 {
+		if name == "build" && api.MustParse(bp.API).AtLeast("0.5") {
 			// if the buildpack API supports build.toml don't treat it as a layer
 			continue
 		}
@@ -131,7 +133,7 @@ func (bp *bpLayer) read() (platform.BuildpackLayerMetadata, error) {
 		return platform.BuildpackLayerMetadata{}, err
 	}
 	if msg != "" {
-		if api.MustParse(bp.api).Compare(api.MustParse("0.6")) < 0 {
+		if api.MustParse(bp.api).LessThan("0.6") {
 			bp.logger.Warn(msg)
 		} else {
 			return platform.BuildpackLayerMetadata{}, errors.New(msg)
