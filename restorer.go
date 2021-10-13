@@ -8,7 +8,6 @@ import (
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
-	"github.com/buildpacks/lifecycle/cmd"
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/platform"
 )
@@ -20,7 +19,7 @@ type Restorer struct {
 	Buildpacks            []buildpack.GroupBuildpack
 	LayerMetadataRestorer LayerMetadataRestorer   // Platform API >= 0.7
 	LayersMetadata        platform.LayersMetadata // Platform API >= 0.7
-	Platform              cmd.Platform
+	Platform              Platform
 }
 
 // Restore restores metadata for launch and cache layers into the layers directory and attempts to restore layer data for cache=true layers, removing the layer when unsuccessful.
@@ -44,7 +43,7 @@ func (r *Restorer) Restore(cache Cache) error {
 		cachedLayers := cacheMeta.MetadataForBuildpack(buildpack.ID).Layers
 
 		var cachedFn func(bpLayer) bool
-		if api.MustParse(buildpack.API).Compare(api.MustParse("0.6")) >= 0 {
+		if api.MustParse(buildpack.API).AtLeast("0.6") {
 			// On Buildpack API 0.6+, the <layer>.toml file never contains layer types information.
 			// The cache metadata is the only way to identify cache=true layers.
 			cachedFn = func(l bpLayer) bool {
@@ -101,7 +100,7 @@ func (r *Restorer) Restore(cache Cache) error {
 }
 
 func (r *Restorer) restoresLayerMetadata() bool {
-	return api.MustParse(r.Platform.API()).Compare(api.MustParse("0.7")) >= 0
+	return api.MustParse(r.Platform.API()).AtLeast("0.7")
 }
 
 func (r *Restorer) restoreLayer(cache Cache, sha string) error {
