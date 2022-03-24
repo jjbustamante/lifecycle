@@ -4,7 +4,7 @@ require (
 	github.com/BurntSushi/toml v1.0.0
 	github.com/apex/log v1.9.0
 	github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac
-	github.com/docker/docker v20.10.12+incompatible
+	github.com/docker/docker v20.10.14+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/go-containerregistry v0.8.0
